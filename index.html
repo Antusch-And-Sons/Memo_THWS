@@ -28,7 +28,7 @@
         id="main-frame"
         src="https://embed.figma.com/proto/R7MTjNYH318PGIqlIzVnke?node-id=230-431&starting-point-node-id=250%3A176&embed-host=github-pages&viewport=-916%2C-2077%2C0.12&scaling=scale-down&content-scaling=fixed"
         allowfullscreen
-        allow="clipboard-write; clipboard-read"
+        allow="same-origin; allow-top-navigation; clipboard-write; clipboard-read"
     ></iframe>
 
     <script>
@@ -57,6 +57,7 @@
                         if (!/^https?:\/\//i.test(url)) {
                             finalUrl = 'https://' + url;
                         }
+                        // Short-URLs explizit erlauben
                         iframe.src = finalUrl;
                     }
                     cmdLPressed = false;
