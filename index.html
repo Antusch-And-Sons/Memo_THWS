@@ -1,128 +1,15 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-<meta charset="UTF-8">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Memo App</title>
-<style>
-  html, body {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
-    background: #000;
-    overflow: hidden;
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  }
-
-  #viewer {
-    width: 100%;
-    height: 100%;
-    border: none;
-    display: block;
-  }
-
-  #idle-screen {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    background: #0a0a0a;
-    padding: 24px;
-    box-sizing: border-box;
-  }
-
-  #idle-screen.hidden {
-    display: none;
-  }
-
-  #idle-screen h1 {
-    color: #666;
-    font-size: 15px;
-    font-weight: 500;
-    letter-spacing: 0.02em;
-    margin: 0 0 28px 0;
-    text-transform: uppercase;
-  }
-
-  #home-links {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    width: 100%;
-    max-width: 480px;
-  }
-
-  #home-links button {
-    appearance: none;
-    border: 1px solid #2a2a2a;
-    background: #151515;
-    color: #eee;
-    font-size: 17px;
-    font-family: inherit;
-    padding: 18px 22px;
-    border-radius: 12px;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  #home-links button:active {
-    background: #222;
-    border-color: #444;
-  }
-
-  /* Kleiner Home-Button oben links, sichtbar sobald eine Seite geladen ist */
-  #home-button {
-    position: fixed;
-    top: env(safe-area-inset-top, 0px);
-    left: 0;
-    width: 44px;
-    height: 44px;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0,0,0,0.35);
-    color: #fff;
-    font-size: 18px;
-    z-index: 1000;
-    border: none;
-  }
-
-  #home-button.visible {
-    display: flex;
-  }
-
-  /* Debug-Overlay: nur sichtbar wenn aktiviert, siehe DEBUG weiter unten */
-  #debug {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: 10px 14px;
-    background: rgba(0,0,0,0.85);
-    color: #0f0;
-    font-family: monospace;
-    font-size: 13px;
-    z-index: 9999;
-    display: none;
-    word-break: break-all;
-  }
-
-  #debug.visible {
-    display: block;
-  }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memo App</title>
 </head>
 <body>
     <!-- Iframe für die aktuelle Seite (Figma oder andere Website) -->
     <iframe
         id="main-frame"
-        src="https://embed.figma.com/proto/R7MTjNYH318PGIqlIzVnke?node-id=230-431&starting-point-node-id=250%3A176&embed-host=github-pages&viewport=-916%2C-2077%2C0.12&scaling=scale-down&content-scaling=fixed"
+        src="https://www.figma.com/proto/R7MTjNYH318PGIqlIzVnke/prototyp_app?page-id=0%3A1&node-id=420-820&viewport=-916%2C-2077%2C0.12&t=NrcMTV6miU8ra6p8-1&scaling=scale-down&content-scaling=fixed&starting-point-node-id=250%3A176&show-proto-sidebar=1"
         allowfullscreen
         allow="clipboard-write; clipboard-read"
     ></iframe>
