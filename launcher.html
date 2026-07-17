@@ -32,26 +32,69 @@
     align-items: center;
     justify-content: center;
     flex-direction: column;
-    color: #444;
-    background: #000;
+    background: #0a0a0a;
+    padding: 24px;
+    box-sizing: border-box;
   }
 
   #idle-screen.hidden {
     display: none;
   }
 
-  #idle-screen .dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: #333;
-    margin-bottom: 16px;
-    animation: pulse 2s ease-in-out infinite;
+  #idle-screen h1 {
+    color: #666;
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    margin: 0 0 28px 0;
+    text-transform: uppercase;
   }
 
-  @keyframes pulse {
-    0%, 100% { opacity: 0.3; }
-    50% { opacity: 1; }
+  #home-links {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+    max-width: 480px;
+  }
+
+  #home-links button {
+    appearance: none;
+    border: 1px solid #2a2a2a;
+    background: #151515;
+    color: #eee;
+    font-size: 17px;
+    font-family: inherit;
+    padding: 18px 22px;
+    border-radius: 12px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  #home-links button:active {
+    background: #222;
+    border-color: #444;
+  }
+
+  /* Kleiner Home-Button oben links, sichtbar sobald eine Seite geladen ist */
+  #home-button {
+    position: fixed;
+    top: env(safe-area-inset-top, 0px);
+    left: 0;
+    width: 44px;
+    height: 44px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.35);
+    color: #fff;
+    font-size: 18px;
+    z-index: 1000;
+    border: none;
+  }
+
+  #home-button.visible {
+    display: flex;
   }
 
   /* Debug-Overlay: nur sichtbar wenn aktiviert, siehe DEBUG weiter unten */
@@ -78,8 +121,11 @@
 <body>
 
 <div id="idle-screen">
-  <div class="dot"></div>
+  <h1>Wähle eine Seite</h1>
+  <div id="home-links"></div>
 </div>
+
+<button id="home-button" aria-label="Zur Startseite">&#8592;</button>
 
 <iframe id="viewer" style="display:none;"></iframe>
 
@@ -90,6 +136,14 @@
   "use strict";
 
   // ---------- Konfiguration ----------
+
+  // Links auf der Startseite. Trage hier deine eigenen Seiten/Frames ein —
+  // normale Figma-Proto-Links reichen, werden automatisch in Embed-URLs umgewandelt.
+  const HOME_LINKS = [
+    { label: "Prototyp — Übersicht", url: "https://www.figma.com/proto/DEIN_FILE_KEY/DEIN_PROJEKT" },
+    { label: "Prototyp — Frame 2", url: "https://www.figma.com/proto/DEIN_FILE_KEY/DEIN_PROJEKT?node-id=NODE_ID" },
+    // weitere Zeilen nach demselben Muster hinzufügen
+  ];
 
   // Debug-Overlay einblenden: hilfreich beim Einrichten, danach auf false stellen.
   const DEBUG = true;
@@ -112,7 +166,21 @@
 
   const viewer = document.getElementById("viewer");
   const idleScreen = document.getElementById("idle-screen");
+  const homeLinksEl = document.getElementById("home-links");
+  const homeButton = document.getElementById("home-button");
   const debugEl = document.getElementById("debug");
+
+  // Startseiten-Buttons rendern
+  HOME_LINKS.forEach(function (link) {
+    const btn = document.createElement("button");
+    btn.textContent = link.label;
+    btn.addEventListener("click", function () {
+      navigateTo(link.url);
+    });
+    homeLinksEl.appendChild(btn);
+  });
+
+  homeButton.addEventListener("click", goHome);
 
   if (DEBUG) {
     debugEl.classList.add("visible");
@@ -176,7 +244,16 @@
     log("Lade: " + url);
     idleScreen.classList.add("hidden");
     viewer.style.display = "block";
+    homeButton.classList.add("visible");
     viewer.src = url;
+  }
+
+  function goHome() {
+    viewer.style.display = "none";
+    viewer.src = "about:blank";
+    homeButton.classList.remove("visible");
+    idleScreen.classList.remove("hidden");
+    log("Startseite");
   }
 
   // ---------- Keyboard-Listener ----------
@@ -221,12 +298,10 @@
       return;
     }
 
-    // Escape = Eingabe abbrechen / zur idle-Seite zurück
+    // Escape = Eingabe abbrechen / zur Startseite zurück
     if (e.key === "Escape") {
       resetBuffer();
-      viewer.style.display = "none";
-      idleScreen.classList.remove("hidden");
-      log("Zurückgesetzt");
+      goHome();
       return;
     }
 
