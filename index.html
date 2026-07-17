@@ -4,12 +4,29 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Memo App</title>
+    <style>
+        /* Basis-Styles – kein erzwungenes Vollbild */
+        html, body {
+            margin: 0;
+            padding: 0;
+            min-height: 100%;
+            background: #fff;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        iframe {
+            width: 100%;
+            height: 100vh;
+            border: none;
+            display: block;
+        }
+    </style>
 </head>
 <body>
     <!-- Iframe für die aktuelle Seite (Figma oder andere Website) -->
     <iframe
         id="main-frame"
-        src="https://www.figma.com/proto/R7MTjNYH318PGIqlIzVnke/prototyp_app?page-id=0%3A1&node-id=420-820&viewport=-916%2C-2077%2C0.12&t=NrcMTV6miU8ra6p8-1&scaling=scale-down&content-scaling=fixed&starting-point-node-id=250%3A176&show-proto-sidebar=1"
+        src="https://embed.figma.com/proto/R7MTjNYH318PGIqlIzVnke?node-id=230-431&starting-point-node-id=250%3A176&embed-host=github-pages&viewport=-916%2C-2077%2C0.12&scaling=scale-down&content-scaling=fixed"
         allowfullscreen
         allow="clipboard-write; clipboard-read"
     ></iframe>
@@ -24,7 +41,7 @@
         document.addEventListener('keydown', (event) => {
             // Prüfen auf CMD+L (Mac) oder STRG+L (Windows/Linux)
             if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'l') {
-                event.preventDefault(); // Standardverhalten (Adressfokus) unterdrücken
+                event.preventDefault();
                 cmdLPressed = true;
                 inputBuffer = '';
                 return;
@@ -36,12 +53,10 @@
                 if (event.key === 'Enter') {
                     const url = inputBuffer.trim();
                     if (url) {
-                        // Prüfen, ob Protokoll fehlt, falls ja https:// voranstellen
                         let finalUrl = url;
                         if (!/^https?:\/\//i.test(url)) {
                             finalUrl = 'https://' + url;
                         }
-                        // URL im Iframe laden (nicht window.location!)
                         iframe.src = finalUrl;
                     }
                     cmdLPressed = false;
