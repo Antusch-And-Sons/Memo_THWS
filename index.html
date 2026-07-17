@@ -1,323 +1,80 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-<meta charset="UTF-8">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>NFC Launcher</title>
-<style>
-  html, body {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
-    background: #000;
-    overflow: hidden;
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Figma Prototype Embed</title>
+    <style>
+        /* Vollbild-Layout ohne Ränder */
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+        }
 
-  #viewer {
-    width: 100%;
-    height: 100%;
-    border: none;
-    display: block;
-  }
-
-  #idle-screen {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    background: #0a0a0a;
-    padding: 24px;
-    box-sizing: border-box;
-  }
-
-  #idle-screen.hidden {
-    display: none;
-  }
-
-  #idle-screen h1 {
-    color: #666;
-    font-size: 15px;
-    font-weight: 500;
-    letter-spacing: 0.02em;
-    margin: 0 0 28px 0;
-    text-transform: uppercase;
-  }
-
-  #home-links {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    width: 100%;
-    max-width: 480px;
-  }
-
-  #home-links button {
-    appearance: none;
-    border: 1px solid #2a2a2a;
-    background: #151515;
-    color: #eee;
-    font-size: 17px;
-    font-family: inherit;
-    padding: 18px 22px;
-    border-radius: 12px;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  #home-links button:active {
-    background: #222;
-    border-color: #444;
-  }
-
-  /* Kleiner Home-Button oben links, sichtbar sobald eine Seite geladen ist */
-  #home-button {
-    position: fixed;
-    top: env(safe-area-inset-top, 0px);
-    left: 0;
-    width: 44px;
-    height: 44px;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0,0,0,0.35);
-    color: #fff;
-    font-size: 18px;
-    z-index: 1000;
-    border: none;
-  }
-
-  #home-button.visible {
-    display: flex;
-  }
-
-  /* Debug-Overlay: nur sichtbar wenn aktiviert, siehe DEBUG weiter unten */
-  #debug {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: 10px 14px;
-    background: rgba(0,0,0,0.85);
-    color: #0f0;
-    font-family: monospace;
-    font-size: 13px;
-    z-index: 9999;
-    display: none;
-    word-break: break-all;
-  }
-
-  #debug.visible {
-    display: block;
-  }
-</style>
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+        }
+    </style>
 </head>
 <body>
+    <!-- Figma Prototype als Iframe einbetten -->
+    <iframe
+        id="figma-frame"
+        src="https://embed.figma.com/proto/R7MTjNYH318PGIqlIzVnke?node-id=230-431&starting-point-node-id=250%3A176&embed-host=github-pages&viewport=-916%2C-2077%2C0.12&scaling=scale-down&content-scaling=fixed"
+        allowfullscreen
+        allow="clipboard-write; clipboard-read"
+    ></iframe>
 
-<div id="idle-screen">
-  <h1>Wähle eine Seite</h1>
-  <div id="home-links"></div>
-</div>
+    <script>
+        // Tastatureingaben abfangen
+        let cmdLPressed = false;
+        let inputBuffer = '';
 
-<button id="home-button" aria-label="Zur Startseite">&#8592;</button>
+        document.addEventListener('keydown', (event) => {
+            // Prüfen auf CMD+L (Mac) oder STRG+L (Windows/Linux)
+            if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'l') {
+                event.preventDefault(); // Standardverhalten (Adressfokus) unterdrücken
+                cmdLPressed = true;
+                inputBuffer = '';
+                return;
+            }
 
-<iframe id="viewer" style="display:none;"></iframe>
-
-<div id="debug"></div>
-
-<script>
-(function () {
-  "use strict";
-
-  // ---------- Konfiguration ----------
-
-  // Links auf der Startseite. Trage hier deine eigenen Seiten/Frames ein —
-  // normale Figma-Proto-Links reichen, werden automatisch in Embed-URLs umgewandelt.
-  const HOME_LINKS = [
-    { label: "Prototyp — Übersicht", url: "https://www.figma.com/proto/DEIN_FILE_KEY/DEIN_PROJEKT" },
-    { label: "Prototyp — Frame 2", url: "https://www.figma.com/proto/DEIN_FILE_KEY/DEIN_PROJEKT?node-id=NODE_ID" },
-    // weitere Zeilen nach demselben Muster hinzufügen
-  ];
-
-  // Debug-Overlay einblenden: hilfreich beim Einrichten, danach auf false stellen.
-  const DEBUG = true;
-
-  // Timeout in ms: falls das Tippen mal abbricht / hängt, wird der Buffer verworfen.
-  const INPUT_TIMEOUT = 4000;
-
-  // Sonderzeichen, die per BLE-HID gern mal durch QWERTZ-Mapping verrutschen.
-  // Falls dein Arduino z.B. "/" als etwas anderes sendet, hier korrigieren.
-  const CHAR_FIXES = {
-    // "y": "z",   // Beispiel: falls QWERTZ/QWERTY vertauscht wird
-    // "z": "y",
-  };
-
-  // ---------- State ----------
-
-  let buffer = "";
-  let timeoutHandle = null;
-  let capturing = false; // wird erst true, nachdem Cmd+L erkannt wurde
-
-  const viewer = document.getElementById("viewer");
-  const idleScreen = document.getElementById("idle-screen");
-  const homeLinksEl = document.getElementById("home-links");
-  const homeButton = document.getElementById("home-button");
-  const debugEl = document.getElementById("debug");
-
-  // Startseiten-Buttons rendern
-  HOME_LINKS.forEach(function (link) {
-    const btn = document.createElement("button");
-    btn.textContent = link.label;
-    btn.addEventListener("click", function () {
-      navigateTo(link.url);
-    });
-    homeLinksEl.appendChild(btn);
-  });
-
-  homeButton.addEventListener("click", goHome);
-
-  if (DEBUG) {
-    debugEl.classList.add("visible");
-  }
-
-  function log(msg) {
-    if (DEBUG) {
-      debugEl.textContent = msg;
-    }
-  }
-
-  function resetBuffer() {
-    buffer = "";
-    capturing = false;
-    if (timeoutHandle) {
-      clearTimeout(timeoutHandle);
-      timeoutHandle = null;
-    }
-  }
-
-  function scheduleTimeout() {
-    if (timeoutHandle) clearTimeout(timeoutHandle);
-    timeoutHandle = setTimeout(() => {
-      log("Timeout — Buffer verworfen: " + buffer);
-      resetBuffer();
-    }, INPUT_TIMEOUT);
-  }
-
-  // Wandelt eine normale Figma-Link (proto/design/file) in die Embed-URL um,
-  // falls nötig. Reine Embed-URLs oder beliebige andere URLs bleiben unverändert.
-  function normalizeUrl(raw) {
-    let url = raw.trim();
-
-    // Falls kein Protokoll angegeben wurde, https:// annehmen
-    if (!/^https?:\/\//i.test(url)) {
-      url = "https://" + url;
-    }
-
-    try {
-      const parsed = new URL(url);
-
-      // Figma-Proto/Design-Link automatisch in Embed-Format umwandeln
-      if (parsed.hostname.includes("figma.com") &&
-          (parsed.pathname.startsWith("/proto/") || parsed.pathname.startsWith("/design/") || parsed.pathname.startsWith("/file/")) &&
-          !parsed.pathname.startsWith("/embed")) {
-        const embedUrl = "https://www.figma.com/embed?embed_host=share&url=" + encodeURIComponent(url);
-        return embedUrl;
-      }
-
-      return url;
-    } catch (e) {
-      log("Ungültige URL: " + raw);
-      return null;
-    }
-  }
-
-  function navigateTo(rawUrl) {
-    const url = normalizeUrl(rawUrl);
-    if (!url) return;
-
-    log("Lade: " + url);
-    idleScreen.classList.add("hidden");
-    viewer.style.display = "block";
-    homeButton.classList.add("visible");
-    viewer.src = url;
-  }
-
-  function goHome() {
-    viewer.style.display = "none";
-    viewer.src = "about:blank";
-    homeButton.classList.remove("visible");
-    idleScreen.classList.remove("hidden");
-    log("Startseite");
-  }
-
-  // ---------- Keyboard-Listener ----------
-
-  document.addEventListener("keydown", function (e) {
-
-    // Trigger: Cmd+L (macOS/iPadOS Meta-Taste) oder Ctrl+L als Fallback,
-    // z.B. falls das Arduino-Keyboard-Layout Ctrl statt Cmd sendet.
-    const isTrigger = (e.key.toLowerCase() === "l") && (e.metaKey || e.ctrlKey);
-
-    if (isTrigger) {
-      e.preventDefault();
-      capturing = true;
-      buffer = "";
-      log("Cmd+L erkannt — warte auf URL...");
-      scheduleTimeout();
-      return;
-    }
-
-    // Solange kein Cmd+L kam, ignorieren wir alles andere komplett —
-    // so bleibt der bestehende NFC/Arduino-Code (Cmd+L, URL, Enter) unverändert nutzbar.
-    if (!capturing) {
-      return;
-    }
-
-    // Enter = Eingabe abschließen und navigieren
-    if (e.key === "Enter") {
-      e.preventDefault();
-      if (buffer.length > 0) {
-        navigateTo(buffer);
-      }
-      resetBuffer();
-      return;
-    }
-
-    // Backspace = letztes Zeichen löschen (falls Arduino das mal sendet)
-    if (e.key === "Backspace") {
-      e.preventDefault();
-      buffer = buffer.slice(0, -1);
-      log("Buffer: " + buffer);
-      scheduleTimeout();
-      return;
-    }
-
-    // Escape = Eingabe abbrechen / zur Startseite zurück
-    if (e.key === "Escape") {
-      resetBuffer();
-      goHome();
-      return;
-    }
-
-    // Nur druckbare Einzelzeichen übernehmen (blendet Shift/Cmd/Ctrl etc. aus)
-    if (e.key.length === 1) {
-      e.preventDefault();
-      const ch = CHAR_FIXES[e.key] || e.key;
-      buffer += ch;
-      log("Buffer: " + buffer);
-      scheduleTimeout();
-    }
-  }, true);
-
-  log("Bereit — warte auf NFC-Eingabe...");
-})();
-</script>
-
+            // Wenn CMD+L zuvor gedrückt wurde, Eingaben sammeln
+            if (cmdLPressed) {
+                // Enter drücken → URL aufrufen
+                if (event.key === 'Enter') {
+                    const url = inputBuffer.trim();
+                    if (url) {
+                        // Prüfen, ob Protokoll fehlt, falls ja https:// voranstellen
+                        let finalUrl = url;
+                        if (!/^https?:\/\//i.test(url)) {
+                            finalUrl = 'https://' + url;
+                        }
+                        window.location.href = finalUrl;
+                    }
+                    cmdLPressed = false;
+                    inputBuffer = '';
+                    event.preventDefault();
+                }
+                // Escape drücken → Abbruch
+                else if (event.key === 'Escape') {
+                    cmdLPressed = false;
+                    inputBuffer = '';
+                    event.preventDefault();
+                }
+                // Normale Zeichen sammeln (keine Modifier-Tasten)
+                else if (!event.ctrlKey && !event.metaKey && !event.altKey && event.key.length === 1) {
+                    inputBuffer += event.key;
+                    event.preventDefault();
+                }
+            }
+        });
+    </script>
 </body>
 </html>
