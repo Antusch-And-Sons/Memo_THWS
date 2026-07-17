@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>NFC Launcher</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  #viewer {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+  }
+
+  #idle-screen {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    color: #444;
+    background: #000;
+  }
+
+  #idle-screen.hidden {
+    display: none;
+  }
+
+  #idle-screen .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #333;
+    margin-bottom: 16px;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+  }
+
+  /* Debug-Overlay: nur sichtbar wenn aktiviert, siehe DEBUG weiter unten */
+  #debug {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 10px 14px;
+    background: rgba(0,0,0,0.85);
+    color: #0f0;
+    font-family: monospace;
+    font-size: 13px;
+    z-index: 9999;
+    display: none;
+    word-break: break-all;
+  }
+
+  #debug.visible {
+    display: block;
+  }
+</style>
+</head>
+<body>
+
+<div id="idle-screen">
+  <div class="dot"></div>
+</div>
+
+<iframe id="viewer" style="display:none;"></iframe>
+
+<div id="debug"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Konfiguration ----------
+
+  // Debug-Overlay einblenden: hilfreich beim Einrichten, danach auf false stellen.
+  const DEBUG = true;
+
+  // Timeout in ms: falls das Tippen mal abbricht / hängt, wird der Buffer verworfen.
+  const INPUT_TIMEOUT = 4000;
+
+  // Sonderzeichen, die per BLE-HID gern mal durch QWERTZ-Mapping verrutschen.
+  // Falls dein Arduino z.B. "/" als etwas anderes sendet, hier korrigieren.
+  const CHAR_FIXES = {
+    // "y": "z",   // Beispiel: falls QWERTZ/QWERTY vertauscht wird
+    // "z": "y",
+  };
+
+  // ---------- State ----------
+
+  let buffer = "";
+  let timeoutHandle = null;
+  let capturing = false; // wird erst true, nachdem Cmd+L erkannt wurde
+
+  const viewer = document.getElementById("viewer");
+  const idleScreen = document.getElementById("idle-screen");
+  const debugEl = document.getElementById("debug");
+
+  if (DEBUG) {
+    debugEl.classList.add("visible");
+  }
+
+  function log(msg) {
+    if (DEBUG) {
+      debugEl.textContent = msg;
+    }
+  }
+
+  function resetBuffer() {
+    buffer = "";
+    capturing = false;
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+      timeoutHandle = null;
+    }
+  }
+
+  function scheduleTimeout() {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+    timeoutHandle = setTimeout(() => {
+      log("Timeout — Buffer verworfen: " + buffer);
+      resetBuffer();
+    }, INPUT_TIMEOUT);
+  }
+
+  // Wandelt eine normale Figma-Link (proto/design/file) in die Embed-URL um,
+  // falls nötig. Reine Embed-URLs oder beliebige andere URLs bleiben unverändert.
+  function normalizeUrl(raw) {
+    let url = raw.trim();
+
+    // Falls kein Protokoll angegeben wurde, https:// annehmen
+    if (!/^https?:\/\//i.test(url)) {
+      url = "https://" + url;
+    }
+
+    try {
+      const parsed = new URL(url);
+
+      // Figma-Proto/Design-Link automatisch in Embed-Format umwandeln
+      if (parsed.hostname.includes("figma.com") &&
+          (parsed.pathname.startsWith("/proto/") || parsed.pathname.startsWith("/design/") || parsed.pathname.startsWith("/file/")) &&
+          !parsed.pathname.startsWith("/embed")) {
+        const embedUrl = "https://www.figma.com/embed?embed_host=share&url=" + encodeURIComponent(url);
+        return embedUrl;
+      }
+
+      return url;
+    } catch (e) {
+      log("Ungültige URL: " + raw);
+      return null;
+    }
+  }
+
+  function navigateTo(rawUrl) {
+    const url = normalizeUrl(rawUrl);
+    if (!url) return;
+
+    log("Lade: " + url);
+    idleScreen.classList.add("hidden");
+    viewer.style.display = "block";
+    viewer.src = url;
+  }
+
+  // ---------- Keyboard-Listener ----------
+
+  document.addEventListener("keydown", function (e) {
+
+    // Trigger: Cmd+L (macOS/iPadOS Meta-Taste) oder Ctrl+L als Fallback,
+    // z.B. falls das Arduino-Keyboard-Layout Ctrl statt Cmd sendet.
+    const isTrigger = (e.key.toLowerCase() === "l") && (e.metaKey || e.ctrlKey);
+
+    if (isTrigger) {
+      e.preventDefault();
+      capturing = true;
+      buffer = "";
+      log("Cmd+L erkannt — warte auf URL...");
+      scheduleTimeout();
+      return;
+    }
+
+    // Solange kein Cmd+L kam, ignorieren wir alles andere komplett —
+    // so bleibt der bestehende NFC/Arduino-Code (Cmd+L, URL, Enter) unverändert nutzbar.
+    if (!capturing) {
+      return;
+    }
+
+    // Enter = Eingabe abschließen und navigieren
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (buffer.length > 0) {
+        navigateTo(buffer);
+      }
+      resetBuffer();
+      return;
+    }
+
+    // Backspace = letztes Zeichen löschen (falls Arduino das mal sendet)
+    if (e.key === "Backspace") {
+      e.preventDefault();
+      buffer = buffer.slice(0, -1);
+      log("Buffer: " + buffer);
+      scheduleTimeout();
+      return;
+    }
+
+    // Escape = Eingabe abbrechen / zur idle-Seite zurück
+    if (e.key === "Escape") {
+      resetBuffer();
+      viewer.style.display = "none";
+      idleScreen.classList.remove("hidden");
+      log("Zurückgesetzt");
+      return;
+    }
+
+    // Nur druckbare Einzelzeichen übernehmen (blendet Shift/Cmd/Ctrl etc. aus)
+    if (e.key.length === 1) {
+      e.preventDefault();
+      const ch = CHAR_FIXES[e.key] || e.key;
+      buffer += ch;
+      log("Buffer: " + buffer);
+      scheduleTimeout();
+    }
+  }, true);
+
+  log("Bereit — warte auf NFC-Eingabe...");
+})();
+</script>
+
+</body>
+</html>
